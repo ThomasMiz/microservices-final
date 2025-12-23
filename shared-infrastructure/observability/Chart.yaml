@@ -1,0 +1,14 @@
+apiVersion: v2
+name: observability
+description: Unified Observability Stack (OpenObserve + OTel)
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+dependencies:
+  - name: openobserve-standalone
+    version: "0.20.1" 
+    repository: https://charts.openobserve.ai
+  - name: opentelemetry-collector
+    version: "0.140.0" 
+    repository: https://open-telemetry.github.io/opentelemetry-helm-charts

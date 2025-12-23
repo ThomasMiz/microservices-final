@@ -1,0 +1,82 @@
+replicaCount: 1
+
+image:
+  repository: registry.gitlab.com/itba-73-40-microservicios/alumnos/2025-s2/grupo-e/microservice-roomservice
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: "traefik"
+  annotations: {}
+  hosts:
+    - host: ""
+      paths:
+        - path: /api/roomservice
+          pathType: Prefix
+  tls: []
+
+basePath: "/api/roomservice"
+
+# Database configuration
+database:
+  host: "chotel-default-db.shared-infrastructure.svc.cluster.local"
+  port: 5432
+  name: "roomservice"
+  username: "chotel_user"
+  # Password will be loaded from k8s secret
+  passwordSecret:
+    name: "chotel-secrets"
+    key: "postgres-password"
+
+# Redis configuration
+redis:
+  addr: "chotel-default-redis-master.shared-infrastructure.svc.cluster.local:6379"
+  kitchenRequestsStream: "kitchen-requests"  # Requests to Kitchen Service
+  kitchenResponsesStream: "kitchen-responses"  # Responses from Kitchen Service
+  consumerGroup: "roomservice-group"
+  passwordSecret:
+    name: "chotel-secrets"
+    key: "redis-password"
+
+# Reservation service configuration
+reservations:
+  service:
+    name: "reservations"
+    namespace: "reservations-ns"
+    port: 80
+
+# Billing service configuration
+billing:
+  service:
+    name: "billing"
+    namespace: "billing-ns"
+    port: 80
+  errorRate: 0.0 # Error simulation rate (0.0 = 0%, 1.0 = 100%). Default 0.0 for staging, can be set to 0.2 for production
+
+# OpenTelemetry configuration
+opentelemetry:
+  enabled: true
+  endpoint: "observability-opentelemetry-collector.shared-infrastructure.svc.cluster.local:4318"
+  serviceName: "roomservice"
+  serviceVersion: "1.0.0"
+  environment: "production"
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80

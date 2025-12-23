@@ -1,0 +1,11 @@
+### Create tiki
+POST http://localhost:8080/tiki
+Content-Type: application/json
+
+{
+  "text": "Hola mundooo"
+}
+
+
+### Get tiki by ID
+GET http://localhost:8080/tiki/1

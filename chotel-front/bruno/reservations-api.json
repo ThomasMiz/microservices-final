@@ -1,0 +1,375 @@
+{
+  "name": "reservations-api",
+  "version": "1",
+  "items": [
+    {
+      "type": "http",
+      "name": "Create room 101",
+      "filename": "Create room 101.bru",
+      "seq": 6,
+      "settings": {
+        "encodeUrl": true,
+        "timeout": 0
+      },
+      "tags": [],
+      "examples": [],
+      "request": {
+        "url": "{{url}}/rooms",
+        "method": "POST",
+        "headers": [],
+        "params": [],
+        "body": {
+          "mode": "json",
+          "json": "{\n  \"number\": \"101\",\n  \"active\": true,\n  \"name\": \"Room 101\",\n  \"description\": \"The best room in floor 1, with a gorgeous view of the garbage alley down below xd\",\n  \"maxCapacity\": 3,\n  \"category\": \"SUITE\",\n  \"hourlyPrice\": 599.99\n}",
+          "formUrlEncoded": [],
+          "multipartForm": [],
+          "file": []
+        },
+        "script": {},
+        "vars": {},
+        "assertions": [],
+        "tests": "",
+        "docs": "",
+        "auth": {
+          "mode": "inherit"
+        }
+      }
+    },
+    {
+      "type": "http",
+      "name": "Create room 102",
+      "filename": "Create room 102.bru",
+      "seq": 3,
+      "settings": {
+        "encodeUrl": true,
+        "timeout": 0
+      },
+      "tags": [],
+      "examples": [],
+      "request": {
+        "url": "{{url}}/rooms",
+        "method": "POST",
+        "headers": [],
+        "params": [],
+        "body": {
+          "mode": "json",
+          "json": "{\n  \"number\": \"102\",\n  \"active\": true,\n  \"name\": \"Room 102\",\n  \"description\": \"A lowkey ugly room, there are no windows and the only bed is tilted lmao\",\n  \"maxCapacity\": 1,\n  \"category\": \"STANDARD\",\n  \"hourlyPrice\": 39.99\n}",
+          "formUrlEncoded": [],
+          "multipartForm": [],
+          "file": []
+        },
+        "script": {},
+        "vars": {},
+        "assertions": [],
+        "tests": "",
+        "docs": "",
+        "auth": {
+          "mode": "inherit"
+        }
+      }
+    },
+    {
+      "type": "http",
+      "name": "Get room by ID",
+      "filename": "Get room by ID.bru",
+      "seq": 5,
+      "settings": {
+        "encodeUrl": true,
+        "timeout": 0
+      },
+      "tags": [],
+      "examples": [],
+      "request": {
+        "url": "{{url}}/rooms/1?availabilityFrom=2025-01-01T00:00:00-03:00&availabilityTo=2025-12-20T20:20:20.00-03:00",
+        "method": "GET",
+        "headers": [],
+        "params": [
+          {
+            "name": "availabilityFrom",
+            "value": "2025-01-01T00:00:00-03:00",
+            "type": "query",
+            "enabled": true
+          },
+          {
+            "name": "availabilityTo",
+            "value": "2025-12-20T20:20:20.00-03:00",
+            "type": "query",
+            "enabled": true
+          }
+        ],
+        "body": {
+          "mode": "none",
+          "formUrlEncoded": [],
+          "multipartForm": [],
+          "file": []
+        },
+        "script": {},
+        "vars": {},
+        "assertions": [],
+        "tests": "",
+        "docs": "",
+        "auth": {
+          "mode": "inherit"
+        }
+      }
+    },
+    {
+      "type": "http",
+      "name": "Make reservation",
+      "filename": "Make reservation.bru",
+      "seq": 4,
+      "settings": {
+        "encodeUrl": true,
+        "timeout": 0
+      },
+      "tags": [],
+      "examples": [],
+      "request": {
+        "url": "{{url}}/reservations",
+        "method": "POST",
+        "headers": [],
+        "params": [],
+        "body": {
+          "mode": "json",
+          "json": "{\n  \"roomId\": 2,\n  \"guestId\": \"Marcelo\",\n  \"startDate\": \"2025-12-21T12:00:00.0-03:00\",\n  \"endDate\": \"2025-12-22T12:00:00.0-03:00\"\n}",
+          "formUrlEncoded": [],
+          "multipartForm": [],
+          "file": []
+        },
+        "script": {},
+        "vars": {},
+        "assertions": [],
+        "tests": "",
+        "docs": "",
+        "auth": {
+          "mode": "inherit"
+        }
+      }
+    },
+    {
+      "type": "http",
+      "name": "Search reservations",
+      "filename": "Search reservations.bru",
+      "seq": 7,
+      "settings": {
+        "encodeUrl": true,
+        "timeout": 0
+      },
+      "tags": [],
+      "examples": [],
+      "request": {
+        "url": "{{url}}/reservations?from=2025-12-21T12:00:00.0-03:00&to=2025-12-24T12:00:00.0-03:00&page=0&pageSize=3&sortBy=STARTDATE&direction=ASC",
+        "method": "GET",
+        "headers": [],
+        "params": [
+          {
+            "name": "from",
+            "value": "2025-12-21T12:00:00.0-03:00",
+            "type": "query",
+            "enabled": true
+          },
+          {
+            "name": "to",
+            "value": "2025-12-24T12:00:00.0-03:00",
+            "type": "query",
+            "enabled": true
+          },
+          {
+            "name": "page",
+            "value": "0",
+            "type": "query",
+            "enabled": true
+          },
+          {
+            "name": "pageSize",
+            "value": "3",
+            "type": "query",
+            "enabled": true
+          },
+          {
+            "name": "sortBy",
+            "value": "STARTDATE",
+            "type": "query",
+            "enabled": true
+          },
+          {
+            "name": "direction",
+            "value": "ASC",
+            "type": "query",
+            "enabled": true
+          },
+          {
+            "name": "roomIds",
+            "value": "1,2",
+            "type": "query",
+            "enabled": false
+          },
+          {
+            "name": "guestId",
+            "value": "Marcelo",
+            "type": "query",
+            "enabled": false
+          }
+        ],
+        "body": {
+          "mode": "none",
+          "formUrlEncoded": [],
+          "multipartForm": [],
+          "file": []
+        },
+        "script": {},
+        "vars": {},
+        "assertions": [],
+        "tests": "",
+        "docs": "",
+        "auth": {
+          "mode": "inherit"
+        }
+      }
+    },
+    {
+      "type": "http",
+      "name": "Search rooms",
+      "filename": "Search rooms.bru",
+      "seq": 2,
+      "settings": {
+        "encodeUrl": true,
+        "timeout": 0
+      },
+      "tags": [],
+      "examples": [],
+      "request": {
+        "url": "{{url}}/rooms",
+        "method": "GET",
+        "headers": [],
+        "params": [
+          {
+            "name": "active",
+            "value": "true",
+            "type": "query",
+            "enabled": false
+          },
+          {
+            "name": "sortBy",
+            "value": "SIMILARITY",
+            "type": "query",
+            "enabled": false
+          },
+          {
+            "name": "direction",
+            "value": "DESC",
+            "type": "query",
+            "enabled": false
+          },
+          {
+            "name": "search",
+            "value": "room",
+            "type": "query",
+            "enabled": false
+          },
+          {
+            "name": "availableAfter",
+            "value": "2025-01-01T00:00:00.0-03:00",
+            "type": "query",
+            "enabled": false
+          },
+          {
+            "name": "availableBefore",
+            "value": "2025-01-01T00:00:00.0-03:00",
+            "type": "query",
+            "enabled": false
+          },
+          {
+            "name": "categories",
+            "value": "STANDARD",
+            "type": "query",
+            "enabled": false
+          },
+          {
+            "name": "page",
+            "value": "1",
+            "type": "query",
+            "enabled": false
+          },
+          {
+            "name": "pageSize",
+            "value": "2",
+            "type": "query",
+            "enabled": false
+          },
+          {
+            "name": "direction",
+            "value": "ASC",
+            "type": "query",
+            "enabled": false
+          },
+          {
+            "name": "minPrice",
+            "value": "100",
+            "type": "query",
+            "enabled": false
+          },
+          {
+            "name": "maxPrice",
+            "value": "100",
+            "type": "query",
+            "enabled": false
+          },
+          {
+            "name": "minCapacity",
+            "value": "2",
+            "type": "query",
+            "enabled": false
+          },
+          {
+            "name": "maxCapacity",
+            "value": "1",
+            "type": "query",
+            "enabled": false
+          }
+        ],
+        "body": {
+          "mode": "none",
+          "formUrlEncoded": [],
+          "multipartForm": [],
+          "file": []
+        },
+        "script": {},
+        "vars": {},
+        "assertions": [],
+        "tests": "",
+        "docs": "",
+        "auth": {
+          "mode": "inherit"
+        }
+      }
+    }
+  ],
+  "environments": [],
+  "root": {
+    "request": {
+      "vars": {
+        "req": [
+          {
+            "name": "url",
+            "value": "http://127.1:8080",
+            "enabled": true,
+            "local": false,
+            "uid": "dmK3piK2GkccozHnZT4Ld"
+          }
+        ]
+      }
+    }
+  },
+  "brunoConfig": {
+    "version": "1",
+    "name": "reservations-api",
+    "type": "collection",
+    "ignore": [
+      "node_modules",
+      ".git"
+    ],
+    "size": 0.0024051666259765625,
+    "filesCount": 7
+  }
+}

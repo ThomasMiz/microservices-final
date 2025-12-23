@@ -1,0 +1,18 @@
+service:
+  type: LoadBalancer
+  annotations: {}
+  ports:
+    web:
+      port: 80
+      exposedPort: 80
+
+ingressClass:
+  enabled: true
+  isDefaultClass: false
+  name: traefik
+
+providers:
+  kubernetesIngress:
+    # publishedService ensures Traefik knows its external address when behind a LB
+    publishedService:
+      enabled: true

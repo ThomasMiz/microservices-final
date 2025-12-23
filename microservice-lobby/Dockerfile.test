@@ -1,0 +1,44 @@
+FROM python:3.13-slim AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app/src:/app
+ENV PATH="/home/lobbyms/.local/bin:$PATH"
+
+RUN apt-get -y update \
+    && groupadd --system --gid 1001 lobbyms \
+    && useradd --system --uid 1001 -g lobbyms --create-home --home-dir /home/lobbyms --shell /bin/bash lobbyms \
+    && mkdir -p /app /app/test-reports \
+    && chown -R lobbyms:lobbyms /app
+
+WORKDIR /app
+USER lobbyms
+
+################################################################################################################
+
+FROM base AS builder
+
+COPY --chown=lobbyms:lobbyms requirements.txt ./requirements.txt
+COPY --chown=lobbyms:lobbyms test/test-requirements.txt ./test-requirements.txt
+
+RUN pip install --user --no-cache-dir -r requirements.txt -r test-requirements.txt
+
+COPY --chown=lobbyms:lobbyms src/ ./src/
+COPY --chown=lobbyms:lobbyms test/ ./test/
+
+# Copiar configuraciones de testing
+# COPY --chown=lobbyms:lobbyms pytest.ini ./
+# COPY --chown=lobbyms:lobbyms .coveragerc ./
+
+################################################################################################################
+
+FROM builder AS testing
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import pytest; import asyncio" || exit 1
+
+# Crear directorio para reportes
+RUN mkdir -p /app/test-reports && chown lobbyms:lobbyms /app/test-reports
+
+# Comando por defecto - sin reportes (para desarrollo)
+CMD ["pytest", "test/", "-v", "--cov=src", "--cov-report=term-missing", "--cov-report=xml", "--junitxml=test-results.xml"]

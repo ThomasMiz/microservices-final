@@ -1,0 +1,23 @@
+# --- Framework y Servidor ---
+fastapi
+uvicorn[standard]
+pydantic
+
+# --- Clientes Asíncronos (HTTP y Base de Datos) ---
+httpx
+motor
+pymongo
+aiokafka
+
+# --- OpenTelemetry (Núcleo y Exportador OTLP) ---
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-exporter-otlp
+
+# --- OpenTelemetry (Instrumentadores Automáticos) ---
+opentelemetry-instrumentation-fastapi
+opentelemetry-instrumentation-httpx
+opentelemetry-instrumentation-aiokafka
+
+# --- Structured JSON Logging ---
+python-json-logger

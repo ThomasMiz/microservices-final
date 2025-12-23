@@ -1,0 +1,21 @@
+{
+  "name": "chotel-e2e-tests",
+  "version": "1.0.0",
+  "description": "End-to-end integration tests for CHotel microservices architecture",
+  "type": "module",
+  "scripts": {
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "test:coverage": "bun test --coverage"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "kafkajs": "^2.2.4",
+    "pg": "^8.11.0",
+    "@types/pg": "^8.10.0"
+  }
+}

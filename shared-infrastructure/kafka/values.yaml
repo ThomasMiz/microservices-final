@@ -1,0 +1,86 @@
+kafka:
+  enabled: true
+  fullnameOverride: "chotel-default-kafka"
+
+  image:
+    repository: bitnamilegacy/kafka
+
+  defaultInitContainers:
+    volumePermissions:
+      image:
+        repository: bitnamilegacy/os-shell
+    autoDiscovery:
+      image:
+        repository: bitnamilegacy/kubectl
+
+  listeners:
+      client:
+        protocol: SASL_PLAINTEXT
+      interbroker:
+        protocol: SASL_PLAINTEXT
+      controller:
+        protocol: SASL_PLAINTEXT
+
+  sasl:
+      enabledMechanisms: PLAIN
+      
+      # Points to the secret created in Step 1
+      existingSecret: "chotel-secrets"
+      
+      client:
+        users: ["chotel-user"]
+      interbroker:
+        user: "kafka-user"
+      controller:
+        user: "controller-user"
+    
+  controller:
+    replicaCount: 1
+    heapOpts: "-Xms256M -Xmx512M"
+    persistence:
+      enabled: true
+      size: "512Mi"
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "100m"
+      limits:
+        memory: "1Gi"
+        cpu: "250m"
+
+  broker:
+    replicaCount: 1
+    heapOpts: "-Xms256M -Xmx512M"
+    persistence:
+      enabled: true
+      size: "512Mi"
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "100m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+    extraEnvVars:
+      - name: KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR
+        value: "1"
+      - name: KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+        value: "1"
+      - name: KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR
+        value: "1"
+      - name: KAFKA_CFG_DEFAULT_REPLICATION_FACTOR
+        value: "1"
+
+  provisioning:
+    enabled: true
+    topics:
+      - name: "kitchen-requests"
+        partitions: 3
+        replicationFactor: 1
+        config:
+          "retention.ms": "86400000"  # 1 day
+      - name: "kitchen-responses"
+        partitions: 3
+        replicationFactor: 1
+        config:
+          "retention.ms": "86400000"  # 1 day

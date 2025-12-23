@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  lobby-service:
+    build: .
+    container_name: microservice_lobby
+    ports:
+      - "8000:8000"
+    environment:
+      - CLEANING_SERVICE_URL=http://microservice-cleaning.microservice-cleaning-namespace.svc.cluster.local/api/cleaning
+      - RESERVATIONS_SERVICE_URL=http://microservice-reservations.microservice-reservations-namespace.svc.cluster.local/api/reservations
+      - MONGODB_CONNECTION_STRING=mongodb://admin:password123@mongodb-lobby:27017/chotel
+      - KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+    depends_on:
+      - mongodb
+    networks:
+      - microservice-lobby-network
+
+  mongodb:
+    image: mongo:7.0
+    container_name: mongodb-lobby
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: chotel
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    networks:
+      - microservice-lobby-network
+
+volumes:
+  mongodb_data:
+    driver: local
+  mongodb_config:
+    driver: local
+
+networks:
+  microservice-lobby-network:
+    driver: bridge
+    external: true

@@ -1,0 +1,61 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: traefik-alb
+  namespace: traefik
+  annotations:
+    kubernetes.io/ingress.class: alb
+
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: instance
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+
+    # Fixed response for HTTP OPTIONS (CORS preflight checks), don't use this in a production environment
+    alb.ingress.kubernetes.io/actions.options-response: >
+      {
+        "type": "fixed-response",
+        "fixedResponseConfig": {
+          "statusCode": "200",
+          "contentType": "text/plain",
+          "messageBody": "",
+          "responseHeaders": {
+            "X-Hello": "World",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "86400"
+          }
+        }
+      }
+
+    alb.ingress.kubernetes.io/conditions.options-response: >
+      [
+        {
+          "field": "http-request-method",
+          "httpRequestMethodConfig": {
+            "values": ["OPTIONS"]
+          }
+        }
+      ]
+
+spec:
+  rules:
+    - http:
+        paths:
+          # Rule for fixed response to HTTP OPTIONS (aka the "fuck CORS" rule)
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: options-response
+                port:
+                  name: use-annotation
+
+          # Rule to send everthing else to Traefik as God intended
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: traefik
+                port:
+                  number: 80

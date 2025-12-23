@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "microservice-lobby.fullname" . }}
+  labels:
+    {{- include "microservice-lobby.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "microservice-lobby.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "microservice-lobby.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "microservice-lobby.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          {{- if .Values.health.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.basePath }}/health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.basePath }}/health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "microservice-lobby.fullname" . }}-config
+          env:
+            - name: MONGODB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.mongodb.passwordSecret.name }}
+                  key: {{ .Values.mongodb.passwordSecret.key }}
+            - name: MONGODB_CONNECTION_STRING
+              value: "mongodb://{{ .Values.mongodb.username }}:$(MONGODB_PASSWORD)@{{ .Values.mongodb.host }}:{{ .Values.mongodb.port }}/{{ .Values.mongodb.database }}"
+            - name: KAFKA_USER
+              value: {{ .Values.kafka.kafkaUser | quote }}
+            - name: KAFKA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.kafka.passwordSecret.name }}
+                  key: {{ .Values.kafka.passwordSecret.key }}
+            - name: KAFKA_CHECK_IN_TOPIC
+              value: {{ .Values.kafka.topics.checkIn | quote }}
+            - name: KAFKA_CHECK_OUT_TOPIC
+              value: {{ .Values.kafka.topics.checkOut | quote }}
+            - name: CLEANING_SERVICE_USER
+              value: {{ .Values.cleaning.auth.user | quote }}
+            - name: CLEANING_SERVICE_PASSWORD
+              value: {{ .Values.cleaning.auth.password | quote }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

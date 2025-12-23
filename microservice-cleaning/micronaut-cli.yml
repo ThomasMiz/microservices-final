@@ -1,0 +1,6 @@
+applicationType: default
+defaultPackage: io.chotel
+testFramework: junit
+sourceLanguage: java
+buildTool: maven
+features: [ app-name, data, data-jpa, hibernate-jpa, http-client-test, java, java-application, jdbc-hikari, jul-to-slf4j, junit, liquibase, logback, lombok, maven, maven-enforcer-plugin, micronaut-aot, micronaut-http-validation, netty-server, postgres, properties, readme, serialization-jackson, shade, static-resources, test-resources ]

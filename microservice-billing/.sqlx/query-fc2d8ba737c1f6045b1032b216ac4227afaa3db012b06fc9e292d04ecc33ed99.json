@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO folder (id, created_at, closed_at, name) VALUES ($1, $2, NULL, $3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fc2d8ba737c1f6045b1032b216ac4227afaa3db012b06fc9e292d04ecc33ed99"
+}

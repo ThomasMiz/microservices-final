@@ -1,0 +1,221 @@
+image: golang:1.25-alpine
+
+variables:
+  CGO_ENABLED: "0" # Statically link binaries
+  GOMODCACHE: "$CI_PROJECT_DIR/.gomodcache"
+  SERVICE_NAME: "roomservice"
+  NAMESPACE: "roomservice-ns"
+  GITLAB_PROJECT_PATH: "itba-73-40-microservicios/alumnos/2025-s2/grupo-e/c-hotel"
+
+# Cache downloaded dependencies and build cache.
+cache:
+  key:
+    files:
+      - go.sum
+  paths:
+    - .gomodcache
+
+stages:
+  - lint
+  - test
+  - release
+  - deploy-staging
+  - trigger-e2e
+  - deploy-production
+
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+
+# ================== RULE TEMPLATES ==================
+
+# STAGING: Run on Main (Automatic) 
+.rules_template:staging: &rules_staging
+  - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# TESTS: Run on MRs and Main
+.rules_template:tests_only: &rules_tests_only
+  - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  - if: '$CI_COMMIT_BRANCH == "main"'
+
+# ================== BUILD & TEST TEMPLATES ==================
+
+.go_job_template: &go_job_template
+  cache:
+    key:
+      files:
+        - go.sum
+    paths:
+      - .gomodcache
+
+# ================== DEPLOY TEMPLATES ==================
+
+.before_script_template: &before_script_template
+  before_script:
+    - kubectl config get-contexts || true
+    - kubectl config use-context "${GITLAB_PROJECT_PATH}:${AGENT_NAME}"
+
+.secrets_deploy_template: &secrets_deploy_template
+  image: dtzar/helm-kubectl:4.0.0
+  <<: *before_script_template
+  script:
+    # Ensure namespace exists
+    - kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+
+    # Create registry auth secret from GitLab variables
+    - |
+      kubectl create secret docker-registry gitlab-registry-auth \
+        --docker-server="$CI_REGISTRY" \
+        --docker-username="$GITLAB_REGISTRY_USERNAME" \
+        --docker-password="$GITLAB_REGISTRY_PASSWORD" \
+        --namespace $NAMESPACE \
+        --dry-run=client -o yaml | kubectl apply -f -
+
+    # Create application secrets from GitLab variables
+    - |
+      kubectl create secret generic chotel-secrets \
+        --from-literal=postgres-password="$POSTGRES_PASSWORD" \
+        --from-literal=redis-password="$REDIS_PASSWORD" \
+        --namespace $NAMESPACE \
+        --dry-run=client -o yaml | kubectl apply -f -
+
+    # Patch the Default ServiceAccount to use the Registry Secret
+    - |
+      kubectl patch serviceaccount default \
+        -n $NAMESPACE \
+        -p '{"imagePullSecrets": [{"name": "gitlab-registry-auth"}]}'
+
+.helm_deploy_template: &helm_deploy_template
+  image: dtzar/helm-kubectl:4.0.0
+  <<: *before_script_template
+  script:
+    # Ensure namespace exists
+    - kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+
+    # Deploy individual chart
+    - |
+      helm upgrade --install ${SERVICE_NAME} ./chart \
+        --namespace $NAMESPACE \
+        --create-namespace \
+        --set image.repository=$CI_REGISTRY_IMAGE \
+        --set image.tag=$CI_COMMIT_SHORT_SHA \
+        --set billing.errorRate=${BILLING_ERROR_RATE:-0.0} \
+        --wait --timeout 5m \
+        --values ./chart/values.yaml
+
+
+lint:
+  <<: *go_job_template
+  stage: lint
+  script:
+    - go vet ./...
+  rules: *rules_tests_only
+
+test:
+  <<: *go_job_template
+  stage: test
+  script:
+    - go test ./...
+  rules: *rules_tests_only
+
+release:
+  stage: release
+  image: docker:29.0.1
+  services:
+    - docker:29.0.1-dind
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA -f Dockerfile .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+    - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA $CI_REGISTRY_IMAGE:latest
+    - docker push $CI_REGISTRY_IMAGE:latest
+  rules: *rules_staging
+
+# =============================================================================
+# Deploy to Staging
+# =============================================================================
+
+deploy-staging:secrets:
+  stage: deploy-staging
+  <<: *secrets_deploy_template
+  resource_group: deploy-staging-secrets
+  environment:
+    name: staging
+    url: https://staging.chotel.cuini.me/api/roomservice
+    deployment_tier: staging
+  variables:
+    AGENT_NAME: "norberto"
+  rules: *rules_staging
+  needs:
+    - job: release
+
+deploy-staging:helm:
+  stage: deploy-staging
+  <<: *helm_deploy_template
+  environment:
+    name: staging
+    url: https://staging.chotel.cuini.me/api/roomservice
+    deployment_tier: staging
+  variables:
+    AGENT_NAME: "norberto"
+    BILLING_ERROR_RATE: "0.0"
+  rules: *rules_staging
+  needs:
+    - job: release
+    - job: deploy-staging:secrets
+
+# =============================================================================
+# Trigger E2E Tests
+# =============================================================================
+
+trigger-e2e-tests:
+  stage: trigger-e2e
+  trigger:
+    project: "itba-73-40-microservicios/alumnos/2025-s2/grupo-e/end-2-end-tests"
+    branch: main
+    strategy: depend  # Wait for downstream pipeline to complete
+  variables:
+    SERVICE_CHANGED: $SERVICE_NAME
+    SERVICE_VERSION: $CI_COMMIT_SHORT_SHA
+    NAMESPACE: $NAMESPACE
+    UPSTREAM_PIPELINE_ID: $CI_PIPELINE_ID
+    UPSTREAM_PROJECT_PATH: $CI_PROJECT_PATH
+  rules: *rules_staging
+  needs:
+    - job: deploy-staging:helm
+
+# =============================================================================
+# Deploy to Production
+# =============================================================================
+
+deploy-production:secrets:
+  stage: deploy-production
+  <<: *secrets_deploy_template
+  resource_group: deploy-production-secrets
+  environment:
+    name: production
+    url: https://chotel.cuini.me/api/roomservice
+    deployment_tier: production
+  variables:
+    AGENT_NAME: "rogelio"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      when: manual
+  needs:
+    - job: trigger-e2e-tests
+
+deploy-production:helm:
+  stage: deploy-production
+  <<: *helm_deploy_template
+  environment:
+    name: production
+    url: https://chotel.cuini.me/api/roomservice
+    deployment_tier: production
+  variables:
+    AGENT_NAME: "rogelio"
+    BILLING_ERROR_RATE: "0.2"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  needs:
+    - job: trigger-e2e-tests
+    - job: deploy-production:secrets

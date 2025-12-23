@@ -1,0 +1,109 @@
+# Default values for microservice-lobby.
+replicaCount: 1
+
+image:
+  repository: "" 
+  pullPolicy: Always
+  tag: "latest"
+
+imagePullSecrets:
+  - name: gitlab-registry-auth
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+service:
+  type: ClusterIP
+  port: 8000
+  targetPort: 8000
+
+ingress:
+  enabled: true
+  className: "traefik"
+  annotations: {}
+  hosts:
+    - host: ""
+      paths:
+        - path: /api/lobby
+          pathType: Prefix
+  tls: []
+
+basePath: "/api/lobby"
+
+# Service dependencies
+cleaning:
+  service:
+    name: "cleaning"
+    namespace: "cleaning-ns"
+    port: 80
+    basePath: "/api/cleaning"
+  auth:
+    user: "Marcelo"
+    password: "chotardo69"
+
+reservations:
+  service:
+    name: "reservations"
+    namespace: "reservations-ns"
+    port: 80
+    basePath: "/api/reservations"
+
+billing:
+  service:
+    name: "billing"
+    namespace: "billing-ns"
+    port: 80
+    basePath: "/api/billing"
+
+kafka:
+  bootstrapServers: "chotel-default-kafka.shared-infrastructure.svc.cluster.local:9092"
+  passwordSecret:
+    name: "chotel-secrets"
+    key: "kafka-password"
+  kafkaUser: "chotel-user"
+  topics:
+    checkIn: "check-in"
+    checkOut: "check-out"
+
+mongodb:
+  host: "chotel-default-mongo.shared-infrastructure.svc.cluster.local"
+  port: "27017"
+  username: "chotel_user"
+  database: "chotel"
+  passwordSecret:
+    name: "chotel-secrets"
+    key: "mongodb-passwords"
+
+opentelemetry:
+  exporterEndpoint: "http://observability-opentelemetry-collector.shared-infrastructure.svc.cluster.local:4317"
+
+health:
+  enabled: true
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+autoscaling:
+  enabled: false
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi

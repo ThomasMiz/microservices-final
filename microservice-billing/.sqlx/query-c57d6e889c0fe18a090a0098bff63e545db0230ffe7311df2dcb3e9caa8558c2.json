@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM ticket WHERE folder_id = $1 AND state = 'canceled'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c57d6e889c0fe18a090a0098bff63e545db0230ffe7311df2dcb3e9caa8558c2"
+}

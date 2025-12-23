@@ -1,0 +1,60 @@
+replicaCount: 1
+
+image:
+  repository: registry.gitlab.com/itba-73-40-microservicios/alumnos/2025-s2/grupo-e/microservice-reservations
+  pullPolicy: IfNotPresent
+  tag: "1.0.0"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: "traefik"
+  annotations: {}
+  hosts:
+    - host: ""
+      paths:
+        - path: /api/reservations
+          pathType: Prefix
+  tls: []
+
+basePath: "/api/reservations"
+
+env: []
+
+# Billing service configuration
+billing:
+  service:
+    name: "billing"
+    namespace: "billing-ns"
+    port: 80
+
+# Database configuration
+database:
+  host: "chotel-default-db.shared-infrastructure.svc.cluster.local"
+  port: 5432
+  name: "reservations"
+  username: "chotel_user"
+  # Password will be loaded from k8s secret
+  passwordSecret:
+    name: "postgres-secret"
+    key: "postgres-password"
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+opentelemetry:
+  endpoint: "http://observability-opentelemetry-collector.shared-infrastructure.svc.cluster.local:4317"
+  metricsEndpoint: "http://observability-opentelemetry-collector.shared-infrastructure.svc.cluster.local:4318/v1/metrics"

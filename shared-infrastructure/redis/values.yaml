@@ -1,0 +1,33 @@
+redis:
+  image:
+    repository: bitnamilegacy/redis
+  enabled: true
+  fullnameOverride: "chotel-default-redis"
+  auth:
+    enabled: true
+    existingSecret: "chotel-secrets"
+    existingSecretPasswordKey: "redis-password"
+  # important comment
+  master:
+    persistence:
+      enabled: true
+      size: "256Mi"
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "500m"
+  replica:
+    replicaCount: 0
+    persistence:
+      enabled: true
+      size: "256Mi"
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "500m"

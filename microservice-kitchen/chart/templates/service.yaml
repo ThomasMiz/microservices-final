@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "microservice-kitchen.fullname" . }}
+  labels:
+    app: {{ include "microservice-kitchen.name" . }}
+    chart: {{ include "microservice-kitchen.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app: {{ include "microservice-kitchen.name" . }}
+    release: {{ .Release.Name }}

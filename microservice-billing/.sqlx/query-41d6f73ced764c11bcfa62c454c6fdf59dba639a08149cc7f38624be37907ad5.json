@@ -1,0 +1,43 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO payment_attempt (id, created_at, closed_at, method, description, state, total)\n            VALUES ($1, $2, NULL, $3, $4, $5, $6)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz",
+        {
+          "Custom": {
+            "name": "paymentmethod",
+            "kind": {
+              "Enum": [
+                "cash",
+                "credit",
+                "debit",
+                "dishwashing",
+                "other"
+              ]
+            }
+          }
+        },
+        "Varchar",
+        {
+          "Custom": {
+            "name": "paymentattemptstate",
+            "kind": {
+              "Enum": [
+                "ongoing",
+                "successful",
+                "failed"
+              ]
+            }
+          }
+        },
+        "Numeric"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "41d6f73ced764c11bcfa62c454c6fdf59dba639a08149cc7f38624be37907ad5"
+}

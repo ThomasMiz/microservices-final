@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "microservice-cleaning.fullname" . }}
+  labels:
+    app: {{ include "microservice-cleaning.name" . }}
+    chart: {{ include "microservice-cleaning.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    app: {{ include "microservice-cleaning.name" . }}
+    release: {{ .Release.Name }}

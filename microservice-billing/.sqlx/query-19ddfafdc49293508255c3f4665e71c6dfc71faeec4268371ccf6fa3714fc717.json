@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT 1 AS _value",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "_value",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "19ddfafdc49293508255c3f4665e71c6dfc71faeec4268371ccf6fa3714fc717"
+}

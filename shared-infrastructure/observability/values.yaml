@@ -1,0 +1,259 @@
+# ==========================================================
+# OpenObserve (Standalone Chart)
+# ==========================================================
+openobserve-standalone:
+  config:
+    ZO_NODE_ROLE: "all"
+    ZO_LOCAL_MODE: "true"
+    ZO_DATA_DIR: "/data"
+    ZO_BASE_URI: "/openobserve" 
+    ZO_COMPACT_DATA_RETENTION_DAYS: "3"
+
+  image:
+    repository: public.ecr.aws/zinclabs/openobserve
+
+  probes:
+    enabled: true
+    path: "/openobserve/healthz"
+
+  auth:
+    # We pull the password from the secret
+    existingRootUserSecret:
+      name: "chotel-secrets"
+      passwordKey: "openobserve-password"
+      emailKey: "openobserve-email"
+
+  persistence:
+    enabled: true
+    size: 20Gi
+    accessModes:
+      - ReadWriteOnce
+
+  ingress:
+    enabled: true
+    className: "traefik"
+    annotations:
+      traefik.ingress.kubernetes.io/router.entrypoints: web
+    hosts:
+      - host: ""
+        paths:
+          - path: /openobserve
+            pathType: Prefix
+
+# ==========================================================
+# OpenTelemetry Collector (Agent)
+# ==========================================================
+opentelemetry-collector:
+  mode: daemonset
+
+  service:
+    enabled: true
+    internalTrafficPolicy: Local # allow only within the node
+
+  image:
+    repository: "otel/opentelemetry-collector-contrib"
+    tag: "0.141.0"
+  command:
+    name: "otelcol-contrib"
+
+  extraEnvs:
+    - name: AUTH_HEADER
+      valueFrom:
+        secretKeyRef:
+          name: chotel-secrets
+          key: openobserve-auth-token
+    - name: REDIS_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: chotel-secrets
+          key: redis-password
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: chotel-secrets
+          key: postgres-password
+    - name: KAFKA_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: chotel-secrets
+          key: client-passwords
+
+  # ----------------------------------------------------
+  # Privileged mode is required for logs and metrics
+  # ----------------------------------------------------
+  securityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    privileged: true  
+    capabilities:
+      add:
+        - DAC_READ_SEARCH
+        
+  podSecurityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    fsGroup: 0
+  # ----------------------------------------------------
+
+  presets:
+    logsCollection:
+      enabled: true
+      includeCollectorLogs: false
+    kubernetesAttributes:
+      enabled: true
+    hostMetrics:
+      enabled: true
+
+  config:
+    extensions:
+      health_check: {}
+      k8s_observer: 
+        auth_type: serviceAccount
+        node: ${env:K8S_NODE_NAME}
+        observe_pods: true
+        namespaces: 
+          - billing-ns
+          - cleaning-ns
+          - kitchen-ns
+          - lobby-ns
+          - reservations-ns
+          - roomservice-ns
+          - shared-infrastructure
+
+    receivers:
+      filelog:
+        include:
+          # This catches all 6 microservice namespaces at once
+          - /var/log/pods/billing-*/*/*.log
+          - /var/log/pods/cleaning-*/*/*.log
+          - /var/log/pods/kitchen-*/*/*.log
+          - /var/log/pods/lobby-*/*/*.log
+          - /var/log/pods/reservations-*/*/*.log
+          - /var/log/pods/roomservice-*/*/*.log
+          # This catches your shared infrastructure (Postgres, Redis, etc.)
+          - /var/log/pods/shared-infrastructure_*/*/*.log
+        exclude:
+          - /var/log/pods/kube-system_*/*/*.log
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+      receiver_creator:
+        watch_observers: [k8s_observer]
+        receivers:
+          redis:
+            rule: type == "pod" && labels["app.kubernetes.io/name"] == "redis"
+            config:
+              # Connect to the Pod's IP
+              endpoint: '`endpoint`:6379'
+              collection_interval: 10s
+              password: "${env:REDIS_PASSWORD}"
+          postgresql:
+            rule: type == "pod" && labels["app.kubernetes.io/name"] == "postgresql"
+            config:
+              endpoint: '`endpoint`:5432'
+              transport: tcp
+              username: "chotel_user"
+              password: "${env:POSTGRES_PASSWORD}"
+              # Scrape every 30s
+              collection_interval: 30s
+              tls:
+                insecure: true
+          kafkametrics:
+            rule: type == "pod" && labels["app.kubernetes.io/component"] == "broker"
+            config:
+              brokers: ['`endpoint`:9092']
+              protocol_version: "3.8.0"
+              scrapers:
+                - brokers
+                - topics
+                - consumers
+              auth:
+                sasl:
+                  username: "chotel-user"
+                  password: "${env:KAFKA_PASSWORD}"
+                  mechanism: PLAIN
+                  version: 1
+
+    processors:
+      k8sattributes:
+        extract:
+          metadata:
+            - k8s.pod.name
+            - k8s.pod.uid
+            - k8s.deployment.name
+            - k8s.namespace.name
+            - k8s.node.name
+            - k8s.pod.start_time
+        pod_association:
+          - sources:
+              - from: resource_attribute
+                name: k8s.pod.ip
+          - sources:
+              - from: resource_attribute
+                name: k8s.pod.uid
+          - sources:
+              - from: connection
+      batch:
+        send_batch_size: 1000
+        timeout: 10s
+      filter/only-chotel:
+        error_mode: ignore
+        logs:
+          log_record:
+            # Drop logs that DON'T match your prefix or infrastructure
+            - 'not (IsMatch(resource.attributes["k8s.namespace.name"], ".*-ns") or resource.attributes["k8s.namespace.name"] == "shared-infrastructure")'
+        metrics:
+          datapoint:
+            - 'not (IsMatch(resource.attributes["k8s.namespace.name"], ".*-ns") or resource.attributes["k8s.namespace.name"] == "shared-infrastructure")'
+      transform/json:
+        error_mode: ignore
+        log_statements:
+          - context: log
+            statements:
+              - 'merge_maps(log.attributes, ParseJSON(log.body), "upsert") where IsMatch(log.body, "^[{]")'
+              
+              # 2. Promote traceId to root attribute (for Dashboard Filtering)
+              - 'set(log.attributes["trace_id"], log.attributes["mdc"]["traceId"]) where log.attributes["mdc"]["traceId"] != nil'
+              - 'set(log.attributes["span_id"], log.attributes["mdc"]["spanId"]) where log.attributes["mdc"]["spanId"] != nil'
+
+              # 3. Link to Traces (for OpenObserve "Related Logs" view)
+              # 'trace_id.string' is the standard OTLP field name
+              - 'set(trace_id.string, log.attributes["mdc"]["traceId"]) where log.attributes["mdc"]["traceId"] != nil'
+              - 'set(span_id.string, log.attributes["mdc"]["spanId"]) where log.attributes["mdc"]["spanId"] != nil'
+
+    exporters:
+      otlphttp/openobserve:
+        endpoint: "http://observability-openobserve-standalone.shared-infrastructure.svc.cluster.local:5080/openobserve/api/default"
+        headers:
+          Authorization: "${env:AUTH_HEADER}"
+          stream-name: "default"
+        compression: gzip
+
+    service:
+      extensions: [health_check, k8s_observer]
+      pipelines:
+        logs:
+          receivers: [filelog]
+          processors: [k8sattributes, filter/only-chotel, transform/json, batch] 
+          exporters: [otlphttp/openobserve]
+        traces:
+          receivers: [otlp]
+          processors: [k8sattributes, filter/only-chotel, batch]
+          exporters: [otlphttp/openobserve]
+        metrics:
+          receivers: [otlp, hostmetrics, receiver_creator]
+          processors: [k8sattributes, filter/only-chotel, batch]
+          exporters: [otlphttp/openobserve]
+
+  clusterRole:
+    create: true
+    name: chotel-otel-collector-role
+    clusterRoleBinding:
+      name: "chotel-otel-role-binding"
+    rules:
+      - apiGroups: [""]
+        resources: ["pods", "namespaces", "nodes"]
+        verbs: ["get", "watch", "list"]

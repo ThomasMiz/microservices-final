@@ -1,0 +1,9 @@
+# Bun configuration for E2E tests
+[test]
+coverage = true
+coverageDir = "./coverage"
+preload = ["./src/config/test-config.ts"]
+timeout = 30000
+
+[install]
+exact = true

@@ -1,0 +1,11 @@
+apiVersion: v2
+name: postgres
+description: PostgreSQL wrapper chart for Chotel project using Bitnami PostgreSQL
+type: application
+version: 0.2.0
+appVersion: "16.3.0"
+
+dependencies:
+  - name: postgresql
+    version: 18.1.11
+    repository: https://charts.bitnami.com/bitnami

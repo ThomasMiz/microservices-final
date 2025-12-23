@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>C-Hotel</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <img src="favicon.ico" alt="C-Hotel">
+            <h1>C-Hotel</h1>
+        </div>
+        <button class="tab-btn active" onclick="showSection('lobby')">🛎️ Lobby</button>
+        <button class="tab-btn" onclick="showSection('reservations')">📅 Reservas</button>
+        <button class="tab-btn" onclick="showSection('cleaning')">🧹 Limpieza</button>
+        <button class="tab-btn" onclick="showSection('billing')">💳 Facturación</button>
+        <button class="tab-btn" onclick="showSection('roomservice')">🍴 Room Service</button>
+        <button class="tab-btn" onclick="showSection('kitchen')">👨🏼‍🍳 Cocina</button>
+    </div>
+
+    <div class="main-content">
+        <div id="lobby" class="section active">
+            <h1>🛎️ Microservicio de Lobby</h1>
+
+            <div class="card">
+                <h3>Check-in de Huésped</h3>
+                <div class="form-group">
+                    <label>Número de Habitación:</label>
+                    <input type="text" id="lobby-checkin-room" placeholder="Ej: 101">
+                </div>
+                <div class="form-group">
+                    <label>ID del Huésped (Opcional):</label>
+                    <input type="text" id="lobby-checkin-guest" placeholder="Nombre del huésped">
+                </div>
+                <button class="action-btn" onclick="doCheckIn()">Realizar Check-in</button>
+                <div id="res-lobby-checkin" class="response-container">Esperando acción...</div>
+            </div>
+
+            <div class="card">
+                <h3>Check-out de Habitación</h3>
+                <div class="form-group">
+                    <label>Número de Habitación:</label>
+                    <input type="text" id="lobby-checkout-room" placeholder="Ej: 101">
+                </div>
+                <button class="action-btn" onclick="doCheckOut()">Realizar Check-out</button>
+                <div id="res-lobby-checkout" class="response-container">Esperando acción...</div>
+            </div>
+        </div>
+
+        <div id="reservations" class="section">
+            <h1>📅 Microservicio de Reservas</h1>
+
+            <div class="card">
+                <h3>Buscar Habitaciones Disponibles</h3>
+                <button class="action-btn" onclick="searchRooms()">Listar Todas las Habitaciones</button>
+                <div id="res-display-search" class="response-container">Esperando acción...</div>
+            </div>
+
+            <div class="card">
+                <h3>Hacer una Reserva</h3>
+                <div class="form-group">
+                    <label>ID Habitación:</label>
+                    <input type="number" id="res-room-id" value="2">
+                </div>
+                <div class="form-group">
+                    <label>ID Huésped:</label>
+                    <input type="text" id="res-guest-id" placeholder="Nombre del huésped">
+                </div>
+                <div class="form-group">
+                    <label>Fecha Inicio:</label>
+                    <input type="datetime-local" id="res-start-date">
+                </div>
+                <div class="form-group">
+                    <label>Fecha Fin:</label>
+                    <input type="datetime-local" id="res-end-date">
+                </div>
+                <button class="action-btn" onclick="createReservation()">Reservar</button>
+                <div id="res-display-create" class="response-container">Esperando acción...</div>
+            </div>
+
+            <div class="card">
+                <h3>Buscar Reservas</h3>
+                <div class="form-group">
+                    <label>Desde:</label>
+                    <input type="datetime-local" id="res-search-from">
+                </div>
+                <div class="form-group">
+                    <label>Hasta:</label>
+                    <input type="datetime-local" id="res-search-to">
+                </div>
+                <div class="form-group">
+                    <label>ID Huésped (Opcional):</label>
+                    <input type="text" id="res-search-guest" placeholder="Nombre">
+                </div>
+                <button class="action-btn" onclick="searchReservations()">Buscar Reservas</button>
+                <div id="res-display-reservations" class="response-container">Esperando acción...</div>
+            </div>
+
+            <div class="card" style="border-left: 4px solid #9b59b6;">
+                <h3>Administración de Habitaciones</h3>
+                <div class="form-group">
+                    <label>Número:</label>
+                    <input type="text" id="room-create-number" placeholder="101">
+                </div>
+                <div class="form-group">
+                    <label>Nombre:</label>
+                    <input type="text" id="room-create-name" placeholder="Room 101">
+                </div>
+                <div class="form-group">
+                    <label>Categoría:</label>
+                    <select id="room-create-category" style="width: 100%; padding: 8px;">
+                        <option value="STANDARD">STANDARD</option>
+                        <option value="SUITE">SUITE</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Precio por Hora:</label>
+                    <input type="number" id="room-create-price" placeholder="99.99">
+                </div>
+                <div class="form-group">
+                    <label>Capacidad:</label>
+                    <input type="number" id="room-create-capacity" value="2">
+                </div>
+                <div class="form-group">
+                    <label>Descripción:</label>
+                    <input type="text" id="room-create-desc" placeholder="Descripción...">
+                </div>
+                <button class="action-btn" onclick="createRoom()">Crear Habitación</button>
+                <div id="res-room-create" class="response-container">Esperando acción...</div>
+
+                <hr style="margin: 15px 0;">
+
+                <div class="form-group">
+                    <label>Ver Habitación por ID:</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="number" id="room-search-id" placeholder="ID">
+                        <button class="action-btn" style="width: auto;" onclick="getRoomById()">Buscar</button>
+                    </div>
+                </div>
+                <div id="res-room-detail" class="response-container">Esperando acción...</div>
+            </div>
+        </div>
+
+        <div id="cleaning" class="section">
+            <h1>🧹 Microservicio de Limpieza</h1>
+
+            <div class="card">
+                <h3>Asignar Trabajo a Personal</h3>
+                <div class="form-group">
+                    <label>ID del Trabajo (Job ID):</label>
+                    <input type="number" id="clean-job-id" value="2">
+                </div>
+                <div class="form-group">
+                    <label>ID del Staff:</label>
+                    <input type="number" id="clean-staff-id" value="1">
+                </div>
+                <button class="action-btn" onclick="assignCleaningJob()">Asignar Trabajo</button>
+                <div id="res-clean-assign" class="response-container">Esperando acción...</div>
+            </div>
+
+            <div class="card">
+                <h3>Reportar Objeto Roto</h3>
+                <div class="form-group">
+                    <label>Nro Habitación:</label>
+                    <input type="number" id="clean-damage-room" placeholder="101">
+                </div>
+                <div class="form-group">
+                    <label>Objeto:</label>
+                    <input type="text" id="clean-damage-item" placeholder="Ej: Espejo">
+                </div>
+                <div class="form-group">
+                    <label>Descripción:</label>
+                    <input type="text" id="clean-damage-desc" placeholder="¿Qué pasó?">
+                </div>
+                <button class="action-btn" onclick="reportDamage()">Enviar Reporte</button>
+                <div id="res-clean-damage" class="response-container">Esperando acción...</div>
+            </div>
+
+            <div class="card">
+                <h3>Gestión de Personal</h3>
+                <div class="form-group">
+                    <label>Nuevo Staff (Nombre):</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="clean-staff-name" placeholder="Nombre">
+                        <button class="action-btn" style="width: auto;" onclick="createStaff()">Crear</button>
+                    </div>
+                </div>
+                <div id="res-clean-staff-create" class="response-container">Esperando acción...</div>
+
+                <hr style="margin: 15px 0;">
+
+                <div class="form-group">
+                    <label>Buscar Staff:</label>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="action-btn" onclick="searchStaff()">Listar Todo</button>
+                        <input type="number" id="clean-search-staff-id" placeholder="ID">
+                        <button class="action-btn" style="width: auto;" onclick="getStaffById()">Buscar ID</button>
+                    </div>
+                </div>
+                <div id="res-clean-staff-list" class="response-container">Esperando acción...</div>
+            </div>
+
+            <div class="card">
+                <h3>Gestión de Trabajos</h3>
+                <div class="form-group">
+                    <label>Buscar Trabajos:</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="number" id="clean-job-search-room" placeholder="Nro Habitación">
+                        <button class="action-btn" style="width: auto;" onclick="searchJobs()">Filtrar Sala</button>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <input type="number" id="clean-job-search-id" placeholder="Job ID">
+                        <button class="action-btn" style="width: auto;" onclick="getJobById()">Buscar ID</button>
+                    </div>
+                </div>
+                <div id="res-clean-jobs-list" class="response-container">Esperando acción...</div>
+
+                <hr style="margin: 15px 0;">
+
+                <h3>Actualizar Estado de Trabajo</h3>
+                <div class="form-group">
+                    <label>ID Trabajo:</label>
+                    <input type="number" id="clean-update-job-id" placeholder="Job ID">
+                </div>
+                <div class="form-group">
+                    <label>ID Staff:</label>
+                    <input type="number" id="clean-update-staff-id" placeholder="Staff ID">
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="action-btn" onclick="markJobStarted()">Marcar Iniciado</button>
+                    <button class="action-btn" onclick="markJobFinished()">Marcar Terminado</button>
+                </div>
+                <div id="res-clean-job-update" class="response-container">Esperando acción...</div>
+            </div>
+
+            <div class="card">
+                <h3>Ver Reportes de Daño</h3>
+                <button class="action-btn" onclick="searchDamageReports()">Listar Reportes</button>
+                <div id="res-clean-damage-list" class="response-container">Esperando acción...</div>
+            </div>
+
+            <div class="card">
+                <h3>Test Auth</h3>
+                <button class="action-btn" onclick="testCleaningAuth()">Probar Credenciales</button>
+                <div id="res-clean-auth" class="response-container">Esperando acción...</div>
+            </div>
+        </div>
+
+        <div id="billing" class="section">
+            <div class="billing-header">
+                <h1 style="margin-bottom: 0;">💳 Microservicio de Facturación</h1>
+                <button id="bill-health-btn" class="action-btn"
+                    style="background-color: #3498db; width: auto; padding: 8px 15px; font-size: 0.9rem;"
+                    onclick="checkBillingHealth()">Verificar Estado del Servicio</button>
+            </div>
+
+            <div class="card">
+                <h3>Gestión de Tickets de Gasto</h3>
+                <div class="form-group" style="display:flex; gap:10px; align-items:flex-end;">
+                    <div style="flex-grow:1;">
+                        <label>Filtrar por Folder ID (Opcional):</label>
+                        <input type="text" id="bill-search-folder" placeholder="Dejar vacío para ver todos">
+                    </div>
+                    <button class="action-btn" onclick="searchTickets()">🔍 Buscar Tickets</button>
+                </div>
+                <!-- Container for the Ticket List -->
+                <div id="tickets-list-display"></div>
+            </div>
+
+            <div class="card">
+                <h3>Abrir Nueva Carpeta (Folder)</h3>
+                <div class="form-group">
+                    <label>Nombre del Cliente:</label>
+                    <input type="text" id="bill-folder-name" placeholder="Ej: Juan Perez">
+                </div>
+                <button class="action-btn" onclick="createBillingFolder()">Crear Carpeta</button>
+                <div id="res-bill-folder" class="response-container">Esperando acción...</div>
+            </div>
+
+            <div class="card">
+                <h3>Generar Ticket de Gasto</h3>
+                <div class="form-group">
+                    <label>ID de Carpeta (Folder ID):</label>
+                    <input type="text" id="bill-ticket-folder" placeholder="019ab171-...">
+                </div>
+                <div class="form-group">
+                    <label>Monto Total:</label>
+                    <input type="number" id="bill-ticket-total" placeholder="1234.56">
+                </div>
+                <div class="form-group">
+                    <label>Descripción:</label>
+                    <input type="text" id="bill-ticket-desc" placeholder="Consumo de Frigobar">
+                </div>
+                <button class="action-btn" onclick="createTicket()">Crear Ticket</button>
+                <div id="res-bill-ticket" class="response-container">Esperando acción...</div>
+            </div>
+
+            <div class="card">
+                <h3>Operaciones de Carpeta</h3>
+                <div class="form-group">
+                    <label>ID de Carpeta:</label>
+                    <input type="text" id="bill-folder-op-id" placeholder="Folder ID">
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="action-btn" onclick="getFolderById()">Ver Info</button>
+                    <button class="action-btn" style="background-color: #e74c3c;" onclick="closeFolder()">Cerrar
+                        Carpeta</button>
+                </div>
+                <div id="res-bill-folder-op" class="response-container">Esperando acción...</div>
+            </div>
+
+            <div class="card">
+                <h3>Realizar Pago</h3>
+                <div class="form-group">
+                    <label>Método de Pago:</label>
+                    <select id="bill-pay-method" style="width: 100%; padding: 8px;">
+                        <option value="Credit Card">Tarjeta de Crédito</option>
+                        <option value="Cash">Efectivo</option>
+                        <option value="Dishwashing">Lavar Platos</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Descripción:</label>
+                    <input type="text" id="bill-pay-desc" placeholder="Pago final...">
+                </div>
+                <div class="form-group">
+                    <label>Ticket IDs (separados por coma):</label>
+                    <input type="text" id="bill-pay-tickets" placeholder="id1, id2, ...">
+                </div>
+                <button class="action-btn" onclick="makePayment()">Pagar</button>
+                <div id="res-bill-pay" class="response-container">Esperando acción...</div>
+            </div>
+
+
+        </div>
+
+        <div id="roomservice" class="section">
+            <h1>🍴 Room Service</h1>
+            <div class="card">
+                <h3>Crear Pedido</h3>
+                <div class="form-group">
+                    <label>ID Habitación:</label>
+                    <input type="text" id="rs-room-id" placeholder="Ej: 101">
+                </div>
+                <div class="form-group">
+                    <label>Ítems del Menú (separados por coma):</label>
+                    <input type="text" id="rs-items" placeholder="burger, fries">
+                </div>
+                <button class="action-btn" onclick="createOrder()">Enviar Pedido</button>
+                <div id="res-rs-order" class="response-container">Esperando acción...</div>
+            </div>
+        </div>
+
+        <div id="kitchen" class="section">
+            <h1>👨🏼‍🍳 Microservicio de Cocina e Inventario</h1>
+            <div class="card">
+                <h3>Estado del Inventario</h3>
+                <button class="action-btn" onclick="getKitchenMenu()">Refrescar Lista</button>
+                <div id="kitchen-menu-display" class="response-container">Esperando acción...</div>
+            </div>
+            <div class="grid-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="card">
+                    <h3>Setear Stock (Fijo)</h3>
+                    <p><small>Usa esto para correcciones de inventario (pisa el valor actual).</small></p>
+                    <div class="form-group">
+                        <label>ID del Item:</label>
+                        <input type="text" id="inv-item-id" placeholder="Ej: HAMBURGER">
+                    </div>
+                    <div class="form-group">
+                        <label>Cantidad Total:</label>
+                        <input type="number" id="inv-quantity" placeholder="Ej: 50">
+                    </div>
+                    <button class="action-btn" onclick="setInventoryStock()">Setear Stock</button>
+                    <div id="res-inventory-update" class="response-container">Esperando acción...</div>
+                </div>
+                <div class="card" style="border-left: 4px solid #2ecc71;">
+                    <h3>Agregar Stock (Suma)</h3>
+                    <p><small>Usa esto cuando llegue mercadería (suma al valor actual).</small></p>
+                    <div class="form-group">
+                        <label>ID del Item:</label>
+                        <input type="text" id="inv-item-id-add" placeholder="Ej: HAMBURGER">
+                    </div>
+                    <div class="form-group">
+                        <label>Cantidad a sumar:</label>
+                        <input type="number" id="inv-quantity-add" placeholder="Ej: 10">
+                    </div>
+                    <button class="action-btn" style="background-color: #27ae60;" onclick="addInventoryStock()">Sumar al
+                        Stock</button>
+                    <div id="res-inventory-add" class="response-container">Esperando acción...</div>
+                </div>
+            </div>
+        </div>
+
+
+
+        <!-- Generic Modal for Ticket Details -->
+        <div id="ticket-modal" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Detalle del Ticket</h3>
+                    <button class="close-modal-btn" onclick="closeTicketModal()">&times;</button>
+                </div>
+                <div class="modal-body" id="ticket-modal-body">
+                    <!-- Content injected via JS -->
+                    <p class="text-center text-gray-500">Cargando...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scripts -->
+        <script src="js/config.js"></script>
+        <script src="js/core.js"></script>
+        <script src="js/lobby.js"></script>
+        <script src="js/reservations.js"></script>
+        <script src="js/cleaning.js"></script>
+        <script src="js/billing.js"></script>
+        <script src="js/roomservice.js"></script>
+        <script src="js/kitchen.js"></script>
+</body>
+
+</html>

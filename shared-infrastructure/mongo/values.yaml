@@ -1,0 +1,25 @@
+mongodb:
+  enabled: true
+  fullnameOverride: "chotel-default-mongo"
+  auth:
+    enabled: true
+    rootUser: "admin"
+    existingSecret: "chotel-secrets"
+    existingSecretPasswordKey: "mongodb-passwords"
+    username: "chotel_user"
+    database: "chotel"
+  image:
+    repository: bitnamilegacy/mongodb
+  primary:
+    persistence:
+      enabled: true
+      size: "256Mi"
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+  arbiter:
+    enabled: false

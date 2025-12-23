@@ -1,0 +1,223 @@
+image: maven:3-eclipse-temurin-25-alpine
+
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository -Dhttps.protocols=TLSv1.2 -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=WARN -Dorg.slf4j.simpleLogger.showDateTime=true -Djava.awt.headless=true"
+  MAVEN_CLI_OPTS: "--batch-mode --errors --fail-at-end --show-version"
+  SERVICE_NAME: "reservations"
+  NAMESPACE: "reservations-ns"
+  GITLAB_PROJECT_PATH: "itba-73-40-microservicios/alumnos/2025-s2/grupo-e/c-hotel"
+
+stages:
+  - build
+  - test
+  - release
+  - deploy-staging
+  - trigger-e2e
+  - deploy-production
+
+# ================== RULE TEMPLATES ==================
+
+# STAGING: Run on Main (Automatic) 
+.rules_template:staging: &rules_staging
+  - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# TESTS: Run on MRs and Main
+.rules_template:tests_only: &rules_tests_only
+  - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  - if: '$CI_COMMIT_BRANCH == "main"'
+
+# ================== BUILD & TEST TEMPLATES ==================
+
+.maven_job_template: &maven_job_template
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - .m2/repository
+
+# ================== DEPLOY TEMPLATES ==================
+
+.before_script_template: &before_script_template
+  before_script:
+    - kubectl config get-contexts || true
+    - kubectl config use-context "${GITLAB_PROJECT_PATH}:${AGENT_NAME}"
+
+.secrets_deploy_template: &secrets_deploy_template
+  image: dtzar/helm-kubectl:4.0.0
+  <<: *before_script_template
+  script:
+    # Ensure namespace exists
+    - kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+
+    # Create registry auth secret from GitLab variables
+    - |
+      kubectl create secret docker-registry gitlab-registry-auth \
+        --docker-server="$CI_REGISTRY" \
+        --docker-username="$GITLAB_REGISTRY_USERNAME" \
+        --docker-password="$GITLAB_REGISTRY_PASSWORD" \
+        --namespace $NAMESPACE \
+        --dry-run=client -o yaml | kubectl apply -f -
+
+    # Create PostgreSQL password secret from GitLab variables
+    - |
+      kubectl create secret generic postgres-secret \
+        --from-literal=postgres-password="$POSTGRES_PASSWORD" \
+        --namespace $NAMESPACE \
+        --dry-run=client -o yaml | kubectl apply -f -
+
+    # Patch the Default ServiceAccount to use the Registry Secret
+    - |
+      kubectl patch serviceaccount default \
+        -n $NAMESPACE \
+        -p '{"imagePullSecrets": [{"name": "gitlab-registry-auth"}]}'
+
+.helm_deploy_template: &helm_deploy_template
+  image: dtzar/helm-kubectl:4.0.0
+  <<: *before_script_template
+  script:
+    # Ensure namespace exists
+    - kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+
+    # Deploy individual chart
+    - |
+      helm upgrade --install ${SERVICE_NAME} ./chart \
+        --namespace $NAMESPACE \
+        --create-namespace \
+        --set image.repository=$CI_REGISTRY_IMAGE \
+        --set image.tag=$CI_COMMIT_SHORT_SHA \
+        --wait --timeout 5m \
+        --values ./chart/values.yaml
+
+build:
+  <<: *maven_job_template
+  stage: build
+  script:
+    - ./mvnw $MAVEN_CLI_OPTS package -DskipTests 
+  artifacts:
+    paths:
+      - target/microservice-reservations-*.jar
+    expire_in: 1 week
+  rules: *rules_staging
+
+test:
+  <<: *maven_job_template
+  stage: test
+  services:
+    - docker:29.0.1-dind
+  variables:
+    DOCKER_HOST: "tcp://docker:2375"
+    DOCKER_TLS_CERTDIR: "" 
+    DOCKER_DRIVER: overlay2
+  script:
+    - ./mvnw $MAVEN_CLI_OPTS test
+  artifacts:
+    reports:
+      junit: target/surefire-reports/TEST-*.xml
+  rules: *rules_tests_only
+
+release:
+  stage: release
+  image: docker:29.0.1
+  services:
+    - docker:29.0.1-dind
+  script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+    - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA $CI_REGISTRY_IMAGE:latest
+    - docker push $CI_REGISTRY_IMAGE:latest
+  rules: *rules_staging
+  needs:
+    - build
+    - test
+
+# =============================================================================
+# Deploy to Staging
+# =============================================================================
+
+deploy-staging:secrets:
+  stage: deploy-staging
+  <<: *secrets_deploy_template
+  resource_group: deploy-staging-secrets
+  environment:
+    name: staging
+    url: https://staging.chotel.cuini.me/api/reservations
+    deployment_tier: staging
+  variables:
+    AGENT_NAME: "norberto"
+  rules: *rules_staging
+  needs:
+    - job: release
+
+deploy-staging:helm:
+  stage: deploy-staging
+  <<: *helm_deploy_template
+  environment:
+    name: staging
+    url: https://staging.chotel.cuini.me/api/reservations
+    deployment_tier: staging
+  variables:
+    AGENT_NAME: "norberto"
+  rules: *rules_staging
+  needs:
+    - job: release
+    - job: deploy-staging:secrets
+
+# =============================================================================
+# Trigger E2E Tests
+# =============================================================================
+
+trigger-e2e-tests:
+  stage: trigger-e2e
+  trigger:
+    project: "itba-73-40-microservicios/alumnos/2025-s2/grupo-e/end-2-end-tests"
+    branch: main
+    strategy: depend  # Wait for downstream pipeline to complete
+  variables:
+    SERVICE_CHANGED: $SERVICE_NAME
+    SERVICE_VERSION: $CI_COMMIT_SHORT_SHA
+    NAMESPACE: $NAMESPACE
+    UPSTREAM_PIPELINE_ID: $CI_PIPELINE_ID
+    UPSTREAM_PROJECT_PATH: $CI_PROJECT_PATH
+  rules: *rules_staging
+  needs:
+    - job: deploy-staging:helm
+
+# =============================================================================
+# Deploy to Production
+# =============================================================================
+
+deploy-production:secrets:
+  stage: deploy-production
+  <<: *secrets_deploy_template
+  resource_group: deploy-production-secrets
+  environment:
+    name: production
+    url: https://chotel.cuini.me/api/reservations
+    deployment_tier: production
+  variables:
+    AGENT_NAME: "rogelio"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      when: manual
+  needs:
+    - job: trigger-e2e-tests
+
+deploy-production:helm:
+  stage: deploy-production
+  <<: *helm_deploy_template
+  environment:
+    name: production
+    url: https://chotel.cuini.me/api/reservations
+    deployment_tier: production
+  variables:
+    AGENT_NAME: "rogelio"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  needs:
+    - job: trigger-e2e-tests
+    - job: deploy-production:secrets

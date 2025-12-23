@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                id, folder_id, total, item_id, description, created_at, closed_at, state AS \"state: TicketState\"\n            FROM ticket\n            WHERE folder_id = $1 AND state IN ('pending', 'paying')\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "folder_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "total",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 3,
+        "name": "item_id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "description",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "closed_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "state: TicketState",
+        "type_info": {
+          "Custom": {
+            "name": "ticketstate",
+            "kind": {
+              "Enum": [
+                "pending",
+                "paying",
+                "paid",
+                "canceled"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "4cd3878249b7fe5760a9a5efd7e8ad1da472a7fcef2c152523ab65bb83acb1e5"
+}

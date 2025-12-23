@@ -1,0 +1,47 @@
+replicaCount: 1
+
+image:
+  repository: registry.gitlab.com/itba-73-40-microservicios/alumnos/2025-s2/grupo-e/microservice-billing
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 5000
+
+database:
+  user: "chotel_user"
+  host: "chotel-default-db.shared-infrastructure.svc.cluster.local"
+  port: 5432
+  name: "billing"
+  passwordSecret:
+    name: "postgres-secret"
+    key: "postgres-password"
+
+listenAt: "0.0.0.0:5000"
+logLevel: "INFO"
+basePath: "/api/billing"
+failChance: "0.5"
+
+ingress:
+  enabled: true
+  className: "traefik"
+  annotations: {}
+  hosts:
+    - host: ""
+      paths:
+        - path: /api/billing
+          pathType: Prefix
+  tls: []
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+opentelemetry:
+  endpoint: "http://observability-opentelemetry-collector.shared-infrastructure.svc.cluster.local:4317"

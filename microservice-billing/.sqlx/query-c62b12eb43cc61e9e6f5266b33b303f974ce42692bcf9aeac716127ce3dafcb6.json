@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO payment_attempt_ticket (payment_attempt_id, ticket_id)\n            SELECT $1, u.ticket_id FROM UNNEST($2::uuid[]) AS u(ticket_id)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c62b12eb43cc61e9e6f5266b33b303f974ce42692bcf9aeac716127ce3dafcb6"
+}

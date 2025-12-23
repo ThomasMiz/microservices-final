@@ -1,0 +1,295 @@
+stages:
+  - deploy
+
+default:
+  image: dtzar/helm-kubectl:4.0.0
+
+variables:
+  GITLAB_PROJECT_PATH: "itba-73-40-microservicios/alumnos/2025-s2/grupo-e/c-hotel"
+
+# ================== RULE TEMPLATES ==================
+
+.rule_definitions:
+  # PROD: Run on Main (Manual)
+  - &rule_prod_main
+    if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    when: manual
+
+  # STAGING: Run on Main (Automatic)
+  - &rule_staging_main
+    if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+  # Force run on any branch with specific commit title
+  - &rule_easter_egg
+    if: '$CI_COMMIT_TITLE == "EXECUTE ORDER 69"'
+
+# ================== DEPLOY TEMPLATES ==================
+
+.before_script_template: &before_script_template
+  before_script:
+    - kubectl config get-contexts || true
+    - kubectl config use-context "${GITLAB_PROJECT_PATH}:${AGENT_NAME}"
+
+.base_deploy_template: &base_deploy_template
+  <<: *before_script_template
+  script:
+    - kubectl create namespace shared-infrastructure --dry-run=client -o yaml | kubectl apply -f -
+    - export AUTH_TOKEN_VAL=$(echo -n "$OPENOBSERVE_EMAIL:$OPENOBSERVE_PASSWORD" | base64 | tr -d '\n')
+    - |
+      kubectl create secret generic chotel-secrets \
+          --from-literal=postgres-password=$POSTGRES_PASSWORD \
+          --from-literal=postgres-admin-password=$POSTGRES_ADMIN_PASSWORD \
+          --from-literal=redis-password=$REDIS_PASSWORD \
+          --from-literal=mongodb-root-password=$MONGO_ROOT_PASSWORD \
+          --from-literal=mongodb-passwords="$(echo -n "{\"mongodbRootPassword\":\"$MONGO_ROOT_PASSWORD\",\"mongodbUserPassword\":\"$MONGO_PASSWORD\"}" | base64 -w 0)" \
+          --from-literal=client-passwords=$KAFKA_PASSWORD \
+          --from-literal=inter-broker-password=$KAFKA_ADMIN_PASSWORD \
+          --from-literal=controller-password=$KAFKA_ADMIN_PASSWORD \
+          --from-literal=system-user-password=$KAFKA_ADMIN_PASSWORD \
+          --from-literal=openobserve-email="$OPENOBSERVE_EMAIL" \
+          --from-literal=openobserve-password="$OPENOBSERVE_PASSWORD" \
+          --from-literal=openobserve-auth-token="Basic $AUTH_TOKEN_VAL" \
+          --namespace shared-infrastructure \
+          --dry-run=client -o yaml | kubectl apply -f -
+
+.service_deploy_template: &service_deploy_template
+  <<: *before_script_template
+  script:
+    - helm repo add bitnami https://charts.bitnami.com/bitnami
+    - helm repo update
+    - helm dependency build ${SERVICE}
+    - |
+      helm upgrade --install ${SERVICE} ./${SERVICE} \
+        --namespace shared-infrastructure \
+        --wait --timeout ${TIMEOUT} \
+        --values ${SERVICE}/values.yaml
+
+.traefik_deploy_template: &traefik_deploy_template
+  <<: *before_script_template
+  script:
+    - helm repo add traefik https://traefik.github.io/charts
+    - helm repo add eks https://aws.github.io/eks-charts
+    - helm repo update
+    - |
+      helm upgrade --install traefik traefik/traefik \
+        --namespace traefik \
+        --create-namespace \
+        --values traefik/values.yaml
+    - |
+      helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
+        --namespace kube-system \
+        --create-namespace \
+        --set clusterName=chotel-cluster
+    - kubectl apply -f traefik/aws-alb.yaml
+
+.observability_deploy_template: &observability_deploy_template
+  <<: *before_script_template
+  script:
+    - helm repo add openobserve https://charts.openobserve.ai
+    - helm repo add opentelemetry https://open-telemetry.github.io/opentelemetry-helm-charts
+    - helm repo update
+    - helm dependency build observability
+    - |
+      helm upgrade --install observability ./observability \
+        --namespace shared-infrastructure \
+        --wait --timeout 600s \
+        --values observability/values.yaml
+
+# ================== PRODUCTION JOBS ==================
+
+deploy:secret:prod:
+  stage: deploy
+  <<: *base_deploy_template
+  variables:
+    AGENT_NAME: "rogelio"
+  environment:
+    name: production
+  rules:
+    - <<: *rule_prod_main
+    - <<: *rule_easter_egg
+
+deploy:storage:prod:
+  stage: deploy
+  <<: *base_deploy_template
+  variables:
+    AGENT_NAME: "rogelio"
+  environment:
+    name: production
+  script:
+    - kubectl create namespace shared-infrastructure --dry-run=client -o yaml | kubectl apply -f -
+    - helm repo add aws-ebs-csi-driver https://kubernetes-sigs.github.io/aws-ebs-csi-driver
+    - helm upgrade --install aws-ebs-csi-driver aws-ebs-csi-driver/aws-ebs-csi-driver --namespace kube-system
+    - kubectl apply -f ./ebs-storageclass/ebs-gp3.yaml
+  rules:
+    - <<: *rule_prod_main
+    - <<: *rule_easter_egg
+
+deploy:postgres:prod:
+  stage: deploy
+  <<: *service_deploy_template
+  variables:
+    AGENT_NAME: "rogelio"
+    SERVICE: "postgres"
+    TIMEOUT: "300s"
+  environment:
+    name: production
+  rules:
+    - <<: *rule_prod_main
+      changes: [postgres/**/*]
+    - <<: *rule_easter_egg
+  needs: ["deploy:secret:prod", "deploy:storage:prod"]
+
+deploy:mongo:prod:
+  stage: deploy
+  <<: *service_deploy_template
+  variables:
+    AGENT_NAME: "rogelio"
+    SERVICE: "mongo"
+    TIMEOUT: "300s"
+  environment:
+    name: production
+  rules:
+    - <<: *rule_prod_main
+      changes: [mongo/**/*]
+    - <<: *rule_easter_egg
+  needs: ["deploy:secret:prod", "deploy:storage:prod"]
+
+deploy:redis:prod:
+  stage: deploy
+  <<: *service_deploy_template
+  variables:
+    AGENT_NAME: "rogelio"
+    SERVICE: "redis"
+    TIMEOUT: "300s"
+  environment:
+    name: production
+  rules:
+    - <<: *rule_prod_main
+      changes: [redis/**/*]
+    - <<: *rule_easter_egg
+  needs: ["deploy:secret:prod", "deploy:storage:prod"]
+
+deploy:kafka:prod:
+  stage: deploy
+  <<: *service_deploy_template
+  variables:
+    AGENT_NAME: "rogelio"
+    SERVICE: "kafka"
+    TIMEOUT: "600s"
+  environment:
+    name: production
+  rules:
+    - <<: *rule_prod_main
+      changes: [kafka/**/*]
+    - <<: *rule_easter_egg
+  needs: ["deploy:secret:prod", "deploy:storage:prod"]
+
+deploy:traefik:prod:
+  stage: deploy
+  <<: *traefik_deploy_template
+  variables:
+    AGENT_NAME: "rogelio"
+  environment:
+    name: production
+  rules:
+    - <<: *rule_prod_main
+      changes: [traefik/**/*]
+    - <<: *rule_easter_egg
+  needs: ["deploy:secret:prod", "deploy:storage:prod"]
+
+deploy:observability:prod:
+  stage: deploy
+  <<: *observability_deploy_template
+  variables:
+    AGENT_NAME: "rogelio"
+    environment: production
+  rules:
+    - <<: *rule_prod_main
+      changes: [observability/**/*]
+    - <<: *rule_easter_egg
+  needs: ["deploy:secret:prod", "deploy:storage:prod"]
+
+# ================== STAGING JOBS ==================
+
+deploy:secret:staging:
+  stage: deploy
+  <<: *base_deploy_template
+  variables:
+    AGENT_NAME: "norberto"
+  environment:
+    name: staging
+  rules:
+    - <<: *rule_staging_main
+    - <<: *rule_easter_egg
+
+deploy:postgres:staging:
+  stage: deploy
+  <<: *service_deploy_template
+  variables:
+    AGENT_NAME: "norberto"
+    SERVICE: "postgres"
+    TIMEOUT: "300s"
+  environment:
+    name: staging
+  rules:
+    - <<: *rule_staging_main
+      changes: [postgres/**/*]
+    - <<: *rule_easter_egg
+  needs: ["deploy:secret:staging"]
+
+deploy:mongo:staging:
+  stage: deploy
+  <<: *service_deploy_template
+  variables:
+    AGENT_NAME: "norberto"
+    SERVICE: "mongo"
+    TIMEOUT: "300s"
+  environment:
+    name: staging
+  rules:
+    - <<: *rule_staging_main
+      changes: [mongo/**/*]
+    - <<: *rule_easter_egg
+  needs: ["deploy:secret:staging"]
+
+deploy:redis:staging:
+  stage: deploy
+  <<: *service_deploy_template
+  variables:
+    AGENT_NAME: "norberto"
+    SERVICE: "redis"
+    TIMEOUT: "300s"
+  environment:
+    name: staging
+  rules:
+    - <<: *rule_staging_main
+      changes: [redis/**/*]
+    - <<: *rule_easter_egg
+  needs: ["deploy:secret:staging"]
+
+deploy:kafka:staging:
+  stage: deploy
+  <<: *service_deploy_template
+  variables:
+    AGENT_NAME: "norberto"
+    SERVICE: "kafka"
+    TIMEOUT: "600s"
+  environment:
+    name: staging
+  rules:
+    - <<: *rule_staging_main
+      changes: [kafka/**/*]
+    - <<: *rule_easter_egg
+  needs: ["deploy:secret:staging"]
+
+deploy:observability:staging:
+  stage: deploy
+  <<: *observability_deploy_template
+  variables:
+    AGENT_NAME: "norberto"
+    environment: staging
+  rules:
+    - <<: *rule_staging_main
+      changes: [observability/**/*]
+    - <<: *rule_easter_egg
+  needs: ["deploy:secret:staging"]

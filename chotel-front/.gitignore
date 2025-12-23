@@ -1,0 +1,5 @@
+__pycache__
+js/config.js
+.DS_Store
+.vscode/
+.idea/

@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE ticket SET state = $1 WHERE id =ANY($2::uuid[])",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "ticketstate",
+            "kind": {
+              "Enum": [
+                "pending",
+                "paying",
+                "paid",
+                "canceled"
+              ]
+            }
+          }
+        },
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fdca9fcf16dd2011b622567e591da508defcecc82e161dfccfb9cfa079ef299e"
+}

@@ -1,0 +1,40 @@
+postgresql:
+  enabled: true
+  fullnameOverride: "chotel-default-db"
+  auth:
+    database: "chotel"
+    username: "chotel_user"
+    existingSecret: "chotel-secrets"
+    secretKeys:
+      userPasswordKey: "postgres-password"
+      adminPasswordKey: "postgres-admin-password"
+  primary:
+    persistence:
+      enabled: true
+      size: "256Mi"
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+    initdb:
+      scripts:
+        create_dbs.sql: |
+          -- Create 'reservations' database
+          CREATE DATABASE reservations;
+          ALTER DATABASE reservations OWNER TO chotel_user;
+
+          -- Create 'cleaning' database
+          CREATE DATABASE cleaning;
+          ALTER DATABASE cleaning OWNER TO chotel_user;
+
+          -- Create 'billing' database
+          CREATE DATABASE billing;
+          ALTER DATABASE billing OWNER TO chotel_user;
+
+          -- Create 'roomservice' database
+          CREATE DATABASE roomservice;
+          ALTER DATABASE roomservice OWNER TO chotel_user;
+          
